@@ -1,4 +1,4 @@
-defaults:
+defaults: # 把多个配置文件组合在一起
   - _self_
   - /callbacks: [checkpoint_every_n_steps, checkpoint_monitor, learning_rate_monitor]
   - /data: openwebtext
@@ -98,4 +98,4 @@ checkpointing:
   save_dir: ${cwd:}
   # Note: `checkpoints` path should correspond to `checkpoint_every_n_steps.dirpath`
   resume_from_ckpt: true
-  resume_ckpt_path: ${.save_dir}/checkpoints/last.ckpt
+  resume_ckpt_path: ${.save_dir}/checkpoints/last.ckpt # .表示当前节点，即checkpointing

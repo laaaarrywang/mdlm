@@ -389,7 +389,7 @@ class Diffusion(L.LightningModule):
 
   def training_step(self, batch, batch_idx):
     loss = self._compute_loss(batch, prefix='train')
-    self.log(name='trainer/loss',
+    self.log(name='trainer/loss', #  lightning中做logging
              value=loss.item(),
              on_step=True,
              on_epoch=False,

@@ -525,10 +525,10 @@ def get_tokenizer(config):
 def get_dataloaders(config, tokenizer, skip_train=False,
                     skip_valid=False, valid_seed=None):
   num_gpus = torch.cuda.device_count()
-  assert (config.loader.global_batch_size
+  assert (config.loader.global_batch_size # 检查全局batch size设置正确
           == (config.loader.batch_size
-              * config.trainer.num_nodes
-              * num_gpus
+              * config.trainer.num_nodes # num_nodes是多机训练时的机器数量，而不是GPU数量
+              * num_gpus # 每机GPU数量
               * config.trainer.accumulate_grad_batches))
   if config.loader.global_batch_size % (
     num_gpus * config.trainer.accumulate_grad_batches) != 0:
@@ -572,7 +572,7 @@ def get_dataloaders(config, tokenizer, skip_train=False,
   else:
     train_loader = torch.utils.data.DataLoader(
       train_set,
-      batch_size=config.loader.batch_size,
+      batch_size=config.loader.batch_size, # batch size per GPU, not global batch size
       num_workers=config.loader.num_workers,
       pin_memory=config.loader.pin_memory,
       shuffle=not config.data.streaming,

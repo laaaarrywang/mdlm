@@ -19,7 +19,7 @@ omegaconf.OmegaConf.register_new_resolver(
 omegaconf.OmegaConf.register_new_resolver(
   'eval', eval)
 omegaconf.OmegaConf.register_new_resolver(
-  'div_up', lambda x, y: (x + y - 1) // y)
+  'div_up', lambda x, y: (x + y - 1) // y) # this allows us to do ceiling division in yaml configs.
 
 
 def _load_from_checkpoint(config, tokenizer):
@@ -153,13 +153,13 @@ def _train(config, logger, tokenizer):
       config=omegaconf.OmegaConf.to_object(config),
       ** config.wandb)
 
-  if (config.checkpointing.resume_from_ckpt
+  if (config.checkpointing.resume_from_ckpt # 决定要不要从ckpt恢复训练
       and config.checkpointing.resume_ckpt_path is not None
       and utils.fsspec_exists(
         config.checkpointing.resume_ckpt_path)):
-    ckpt_path = config.checkpointing.resume_ckpt_path
+    ckpt_path = config.checkpointing.resume_ckpt_path # 从指定路径恢复训练
   else:
-    ckpt_path = None
+    ckpt_path = None # 如果不从ckpt恢复训练，置为None
 
   # Lightning callbacks
   callbacks = []
@@ -174,7 +174,7 @@ def _train(config, logger, tokenizer):
   model = diffusion.Diffusion(
     config, tokenizer=valid_ds.tokenizer)
 
-  trainer = hydra.utils.instantiate(
+  trainer = hydra.utils.instantiate( # automatically support multi-GPU training.
     config.trainer,
     default_root_dir=os.getcwd(),
     callbacks=callbacks,
@@ -188,12 +188,12 @@ def _train(config, logger, tokenizer):
 def main(config):
   """Main entry point for training."""
   L.seed_everything(config.seed)
-  _print_config(config, resolve=True, save_cfg=True)
+  _print_config(config, resolve=True, save_cfg=True) # config has been composed by hydra
   
   logger = utils.get_logger(__name__)
   tokenizer = dataloader.get_tokenizer(config)
 
-  if config.mode == 'sample_eval':
+  if config.mode == 'sample_eval': # 在config.yaml有定义
     generate_samples(config, logger, tokenizer)
   elif config.mode == 'ppl_eval':
     _ppl_eval(config, logger, tokenizer)
