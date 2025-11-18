@@ -13,7 +13,7 @@ backbone: dit  # dit / dimamba / ar
 parameterization: subs  # subs / d3pm / sedd
 time_conditioning: False
 T: 0  # 0 (continuous time) / 1000 
-subs_masking: False
+subs_masking: False # 在d3pm中允许预测masked tokens
 
 seed: 1
 

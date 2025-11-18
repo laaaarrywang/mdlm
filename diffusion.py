@@ -30,7 +30,7 @@ def _sample_categorical(categorical_probs):
 
 def _unsqueeze(x, reference):
   return x.view(
-    * x.shape,
+    * x.shape, # if x.shape = (3,4), then * x.shape = 3,4。*将x.shape解包为参数
     * ((1,) * (len(reference.shape) - len(x.shape))))
 
 
@@ -41,18 +41,18 @@ class Loss:
   token_mask: torch.FloatTensor
 
 
-class NLL(torchmetrics.aggregation.MeanMetric):
+class NLL(torchmetrics.aggregation.MeanMetric): # 明确表示这是在计算NLL的平均值
   pass
 
 
 class BPD(NLL):
-  def compute(self) -> Tensor:
+  def compute(self) -> Tensor: # 重写MeanMetric的compute方法
     """Computes the bits per dimension.
 
     Returns:
       bpd
     """
-    return self.mean_value / self.weight / LOG2
+    return self.mean_value / self.weight / LOG2 # 原始compute为self.mean_value / self.weight, 这里除以LOG2是为了转换为bits单位
 
 
 class Perplexity(NLL):
@@ -62,7 +62,7 @@ class Perplexity(NLL):
     Returns:
      Perplexity
     """
-    return torch.exp(self.mean_value / self.weight)
+    return torch.exp(self.mean_value / self.weight) # 原始compute为self.mean_value / self.weight, 这里对结果取指数是为了得到Perplexity
 
 
 class Diffusion(L.LightningModule):
@@ -71,7 +71,7 @@ class Diffusion(L.LightningModule):
     config,
     tokenizer: transformers.PreTrainedTokenizer):
     super().__init__()
-    self.save_hyperparameters()
+    self.save_hyperparameters() # 自动保存传入到__init__()的参数到checkpoint中
     self.config = config
 
     self.tokenizer = tokenizer
@@ -79,17 +79,17 @@ class Diffusion(L.LightningModule):
     self.sampler = self.config.sampling.predictor
     self.gen_ppl_eval_model_name_or_path = self.config.eval.\
       gen_ppl_eval_model_name_or_path
-    self.antithetic_sampling = self.config.training.antithetic_sampling
-    self.importance_sampling = self.config.training.importance_sampling
-    self.change_of_variables = self.config.training.change_of_variables
+    self.antithetic_sampling = self.config.training.antithetic_sampling # boolean
+    self.importance_sampling = self.config.training.importance_sampling # boolean
+    self.change_of_variables = self.config.training.change_of_variables # boolean
     if (not hasattr(self.tokenizer, 'mask_token')
-        or self.tokenizer.mask_token is None):
+        or self.tokenizer.mask_token is None): # tokenizer没有mask_token属性，或者mask_token属性为None
       self.mask_index = self.vocab_size
       self.vocab_size += 1
     else:
-      self.mask_index = self.tokenizer.mask_token_id
-    self.parameterization = self.config.parameterization
-    if self.config.backbone == 'dit':
+      self.mask_index = self.tokenizer.mask_token_id # 使用tokenizer的mask_token_id作为mask_index
+    self.parameterization = self.config.parameterization # 'subs', 'sedd', 'd3pm', 'ar'
+    if self.config.backbone == 'dit': # 设置backbone model。这个model就是用来预测logits的
       self.backbone = models.dit.DIT(
         self.config, vocab_size=self.vocab_size)
     elif self.config.backbone == 'dimamba':
@@ -114,7 +114,7 @@ class Diffusion(L.LightningModule):
 
     self.softplus = torch.nn.Softplus()
     # metrics are automatically reset at end of epoch
-    metrics = torchmetrics.MetricCollection({
+    metrics = torchmetrics.MetricCollection({ # 统一管理MeanMetric的三个实例
       'nll': NLL(),
       'bpd': BPD(),
       'ppl': Perplexity(),
@@ -128,16 +128,16 @@ class Diffusion(L.LightningModule):
     self.gen_ppl_metric = Perplexity()
     self.eval_model_tokenizer = transformers.AutoTokenizer.\
       from_pretrained(self.gen_ppl_eval_model_name_or_path)
-    if self.eval_model_tokenizer.pad_token is None:
+    if self.eval_model_tokenizer.pad_token is None: # 处理padding token
       self.eval_model_tokenizer.pad_token =\
           self.eval_model_tokenizer.eos_token
       self.eval_model_tokenizer.pad_token_id =\
           self.eval_model_tokenizer.eos_token_id
 
-    self.noise = noise_schedule.get_noise(self.config,
+    self.noise = noise_schedule.get_noise(self.config, # 添加噪声
                                           dtype=self.dtype)
     if self.config.training.ema > 0:
-      self.ema = models.ema.ExponentialMovingAverage(
+      self.ema = models.ema.ExponentialMovingAverage( # ema参数
         itertools.chain(self.backbone.parameters(),
                         self.noise.parameters()),
         decay=self.config.training.ema)
@@ -148,9 +148,9 @@ class Diffusion(L.LightningModule):
     self.sampling_eps = self.config.training.sampling_eps
     self.time_conditioning = self.config.time_conditioning
     self.neg_infinity = -1000000.0
-    self.fast_forward_epochs = None
-    self.fast_forward_batches = None
-    self._validate_configuration()
+    self.fast_forward_epochs = None # 断点续训
+    self.fast_forward_batches = None # 断点续训
+    self._validate_configuration() # 检查配置是否legal
 
   def _validate_configuration(self):
     assert not (self.change_of_variables
@@ -162,7 +162,7 @@ class Diffusion(L.LightningModule):
       assert self.T > 0
     if self.T > 0:
       assert self.parameterization in {'d3pm', 'subs'}
-    if self.subs_masking:
+    if self.subs_masking: # only used in d3pm
       assert self.parameterization == 'd3pm'
 
   def on_load_checkpoint(self, checkpoint):
@@ -170,9 +170,9 @@ class Diffusion(L.LightningModule):
       self.ema.load_state_dict(checkpoint['ema'])
     # Copied from:
     # https://github.com/Dao-AILab/flash-attention/blob/main/training/src/datamodules/language_modeling_hf.py#L41
-    self.fast_forward_epochs = checkpoint['loops'][
+    self.fast_forward_epochs = checkpoint['loops'][ # 恢复断点续训epoch
       'fit_loop']['epoch_progress']['current']['completed']
-    self.fast_forward_batches = checkpoint['loops'][
+    self.fast_forward_batches = checkpoint['loops'][ # 恢复断点续训batch
       'fit_loop']['epoch_loop.batch_progress'][
         'current']['completed']
 
@@ -202,7 +202,7 @@ class Diffusion(L.LightningModule):
         '_batches_that_stepped'] = checkpoint['loops']['fit_loop'][
           'epoch_loop.automatic_optimization.optim_progress'][
             'optimizer']['step']['total']['completed']
-    if 'sampler' not in checkpoint.keys():
+    if 'sampler' not in checkpoint.keys(): # 保存数据采样器的状态
       checkpoint['sampler'] = {}
     if hasattr(self.trainer.train_dataloader.sampler,
                'state_dict'):
@@ -259,7 +259,7 @@ class Diffusion(L.LightningModule):
         self.noise.parameters()))
 
   def _subs_parameterization(self, logits, xt):
-    # log prob at the mask index = - infinity
+    # log prob at the mask index = - infinity -- forbidden to predict mask token
     logits[:, :, self.mask_index] += self.neg_infinity
     
     # Normalize the logits such that x.exp() is
